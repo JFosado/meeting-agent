@@ -1,6 +1,6 @@
 async function joinMeet(page) {
 
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(50000);
 
   const nameInput = page.locator("input");
 
