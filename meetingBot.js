@@ -1,3 +1,4 @@
+require("dotenv").config();
 const { chromium } = require("playwright");
 const { startRecording } = require("./audioRecorder");
 const { joinTeams } = require("./platforms/teams");
