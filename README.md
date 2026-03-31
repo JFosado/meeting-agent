@@ -209,3 +209,4 @@ git checkout -b feature/mi-mejora
 
 Define aquí la licencia del proyecto (por ejemplo, MIT, Apache 2.0, privada, etc.).
 
+-

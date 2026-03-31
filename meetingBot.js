@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { chromium } = require("playwright");
 const { startRecording } = require("./audioRecorder");
+const { getPlaywrightVideoOptions } = require("./videoRecorder");
 const { joinTeams } = require("./platforms/teams");
 const { joinMeet } = require("./platforms/meet");
 
@@ -15,8 +16,15 @@ async function startMeetingBot({ url, meetingId }) {
     ]
   });
 
+  const { dir: videoDir, size: videoSize } = getPlaywrightVideoOptions(meetingId);
+
   const context = await browser.newContext({
-    permissions: ["microphone", "camera"]
+    permissions: ["microphone", "camera"],
+    viewport: videoSize,
+    recordVideo: {
+      dir: videoDir,
+      size: videoSize
+    }
   });
 
   const page = await context.newPage();
@@ -31,10 +39,17 @@ async function startMeetingBot({ url, meetingId }) {
     await joinMeet(page);
   } else {
     console.log("Plataforma no soportada");
-    return;
+    await browser.close();
+    return null;
   }
 
-  startRecording(meetingId);
+  console.log(
+    `Vídeo: se guardará en "${videoDir}" (archivo .webm al cerrar el navegador o Ctrl+C en la consola).`
+  );
+
+  const { ffmpeg, wavPath } = startRecording(meetingId);
+
+  return { browser, ffmpeg, wavPath, meetingId };
 }
 
 module.exports = { startMeetingBot };
