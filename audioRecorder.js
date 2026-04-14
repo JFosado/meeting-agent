@@ -10,17 +10,21 @@ function startRecording(meetingId) {
 
   console.log(`Grabando audio de ${meetingId} en ${file}`);
 
-  const ffmpeg = spawn("ffmpeg", [
-    "-f",
-    "pulse",
-    "-i",
-    device,
-    "-ac",
-    "1",
-    "-ar",
-    "16000",
-    file
-  ]);
+  const ffmpeg = spawn(
+    "ffmpeg",
+    [
+      "-f",
+      "pulse",
+      "-i",
+      device,
+      "-ac",
+      "1",
+      "-ar",
+      "16000",
+      file
+    ],
+    { stdio: ["pipe", "ignore", "pipe"] }
+  );
 
   ffmpeg.stderr.on("data", (data) => {
     console.log(data.toString());

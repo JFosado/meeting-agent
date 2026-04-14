@@ -9,19 +9,23 @@ if (urls.length === 0) {
   process.exit(1);
 }
 
+const sessionPromises = [];
 const sessions = [];
+let shuttingDown = false;
 
 urls.forEach((url, index) => {
   const meetingId = `meeting${index + 1}`;
 
-  startMeetingBot({
+  const p = startMeetingBot({
     url,
     meetingId
   }).then((session) => {
     if (session) {
       sessions.push(session);
     }
+    return session;
   });
+  sessionPromises.push(p);
 });
 
 function stopFfmpeg(ffmpeg) {
@@ -30,14 +34,43 @@ function stopFfmpeg(ffmpeg) {
       resolve();
       return;
     }
-    const done = () => resolve();
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      resolve();
+    };
+
     ffmpeg.once("close", done);
-    ffmpeg.kill("SIGTERM");
-    setTimeout(done, 12000);
+
+    // En Windows, señales tipo SIGTERM a veces no detienen procesos como esperas.
+    // ffmpeg soporta 'q' en stdin para salir limpiamente y finalizar el WAV.
+    try {
+      if (ffmpeg.stdin && !ffmpeg.stdin.destroyed) {
+        ffmpeg.stdin.write("q");
+      }
+    } catch {}
+
+    // Fallback: intentar terminar el proceso.
+    try {
+      ffmpeg.kill("SIGTERM");
+    } catch {}
+
+    setTimeout(done, 20000);
   });
 }
 
 async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  console.log("\n[shutdown] Deteniendo sesiones y generando transcripciones…");
+
+  // Asegurar que ya resolvieron los startMeetingBot() que estaban en vuelo
+  try {
+    await Promise.allSettled(sessionPromises);
+  } catch {}
+
   for (const s of sessions) {
     if (s.browser) {
       await s.browser.close().catch(() => {});
@@ -51,6 +84,7 @@ async function shutdown() {
   for (const s of sessions) {
     if (s.wavPath && s.meetingId) {
       try {
+        console.log(`[transcripción] Iniciando (${s.meetingId})…`);
         await transcribeWavFile(s.wavPath, s.meetingId);
       } catch (err) {
         console.error(`[transcripción] Error (${s.meetingId}):`, err.message);
@@ -58,8 +92,13 @@ async function shutdown() {
     }
   }
 
+  console.log("[shutdown] Listo.");
   process.exit(0);
 }
 
 process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
+
+process.on("unhandledRejection", (err) => {
+  console.error("[unhandledRejection]", err?.message || err);
+});
