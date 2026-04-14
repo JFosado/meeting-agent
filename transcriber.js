@@ -66,6 +66,14 @@ async function transcribeWavFile(wavPath, meetingId) {
     }
   } catch (err) {
     console.error(`[transcripción] Falló el motor (${engine || "desconocido"}):`, err.message);
+    if (String(err.message).includes("sharp")) {
+      console.error(
+        "[transcripción] sharp es requerido por @xenova/transformers en Node. En Linux prueba:\n" +
+          "  npm install sharp && npm run rebuild-sharp\n" +
+          "Si sigue fallando: sudo apt install -y libvips-dev build-essential && npm install sharp\n" +
+          "Alternativa: define OPENAI_API_KEY en .env para usar Whisper en la nube (sin sharp)."
+      );
+    }
     throw err;
   }
 
