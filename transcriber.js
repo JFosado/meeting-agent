@@ -49,7 +49,8 @@ async function transcribeWavFile(wavPath, meetingId) {
       text = transcription.text;
     } else {
       engine = "local-xenova";
-      const { pipeline } = require("@xenova/transformers");
+      // @xenova/transformers es ESM; en proyectos CommonJS hay que usar import() dinámico.
+      const { pipeline } = await import("@xenova/transformers");
       const transcriber = await pipeline(
         "automatic-speech-recognition",
         "Xenova/whisper-small",
