@@ -12,6 +12,30 @@ function textFromAsrResult(result) {
 }
 
 /**
+ * En Node no existe AudioContext; @xenova/transformers no puede leer rutas/URL de audio.
+ * Ver: https://huggingface.co/docs/transformers.js/guides/node-audio-processing
+ */
+function loadWavForWhisper(wavPath) {
+  const buffer = fs.readFileSync(wavPath);
+  const { WaveFile } = require("wavefile");
+  const wav = new WaveFile(buffer);
+  wav.toBitDepth("32f");
+  wav.toSampleRate(16000);
+  let audioData = wav.getSamples();
+  if (Array.isArray(audioData)) {
+    if (audioData.length > 1) {
+      const SCALING_FACTOR = Math.sqrt(2);
+      for (let i = 0; i < audioData[0].length; ++i) {
+        audioData[0][i] =
+          (SCALING_FACTOR * (audioData[0][i] + audioData[1][i])) / 2;
+      }
+    }
+    audioData = audioData[0];
+  }
+  return audioData;
+}
+
+/**
  * Transcribe un WAV a texto.
  * - Si existe OPENAI_API_KEY: usa la API de OpenAI (Whisper), adecuada para audios largos.
  * - Si no: usa Whisper local vía @xenova/transformers (descarga el modelo la primera vez).
@@ -56,7 +80,8 @@ async function transcribeWavFile(wavPath, meetingId) {
         "Xenova/whisper-small",
         { quantized: true }
       );
-      const result = await transcriber(wavPath, {
+      const audioData = loadWavForWhisper(wavPath);
+      const result = await transcriber(audioData, {
         language: "spanish",
         task: "transcribe",
         chunk_length_s: 30,
